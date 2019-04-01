@@ -3,8 +3,10 @@ bool line_following = true;
 bool communication = true;
 bool mirror = true;
 bool snitch = true;
-bool verbosity = false; 
+bool mirrorVerbosity = true; 
+bool verbosity = false;
 bool lineFollow = false;
+bool fifthHashStop = true;
 
 // line_following
 #include <Servo.h>
@@ -25,6 +27,7 @@ int mirrorDelayTime = 1500;
 int snitchDelayTime = 2000;
 int hashDelayTime = 1500;
 int numMirrors = 0;
+int fixedMirrorCount = 0;
 int numHashes = 0;
 bool turned = false;
 
@@ -107,12 +110,12 @@ void loop() {
    
   
    // BBW: turn left
-   if (turned){
+   if (! turned){
      if ((qti1 > thresh) and (qti2 > thresh) and (qti3 < thresh)){ 
      servoRight.writeMicroseconds(1300);
      servoLeft.writeMicroseconds(1350);
      delay(stdDelay);
-     totalDelay += stdDelay;
+     totalDelay += stdDelay;  
      servoRight.writeMicroseconds(1440);
      servoLeft.writeMicroseconds(1560);
      delay(1);
@@ -125,6 +128,12 @@ void loop() {
         numHashes++;
         Serial2.print(numHashes);
         lastHash = millis();
+        if (numHashes == fixedMirrorCount){
+          servoRight.writeMicroseconds(1500);
+          servoLeft.writeMicroseconds(1500);
+          searchSnitch();
+          delay(30000);
+        }
       }
      }
      }
@@ -164,22 +173,8 @@ void loop() {
    delay(1);
    totalDelay += 1;
    }
-   if (lineFollow){
-    // BBB: stop
-     if ((qti1 > thresh) and (qti2 > thresh) and (qti3 > thresh)){ 
-     servoRight.writeMicroseconds(1500);
-     servoLeft.writeMicroseconds(1500);
-     delay(bbbStop);
-     totalDelay += bbbStop;
-     servoRight.writeMicroseconds(1440);
-     servoLeft.writeMicroseconds(1560);
-     delay(300);
-     totalDelay += 300;
-     Serial.println("BBB");
-     }
-   }
-   else {
-    if ((qti1 > thresh) and (qti2 > thresh) and (qti3 > thresh)){ 
+   // BBB: turn
+   if ((qti1 > thresh) and (qti2 > thresh) and (qti3 > thresh)){ 
      servoRight.writeMicroseconds(1300);
      servoLeft.writeMicroseconds(1460);
      delay(turnDelay);
@@ -189,11 +184,26 @@ void loop() {
      delay(1);
      totalDelay += 1;
      numHashes = 1;
+     turned = true;
+     fixedMirrorCount = numMirrors;
      Serial2.print(numHashes);
+     if (numHashes == fixedMirrorCount){
+      servoRight.writeMicroseconds(1500);
+      servoLeft.writeMicroseconds(1500);
+      searchSnitch();
+      delay(30000);
+     }
+     // make sure the bot doesn't run off the table: FOR TESTING
+     if (fifthHashStop){
+     if (numHashes == 5){
+      servoRight.writeMicroseconds(1500);
+      servoLeft.writeMicroseconds(1500);
+      delay(30000);
+     }      
+     }
      }
    }
      
-  }
   if (communication) {
 
   // Memory for serial printing string formatting
@@ -248,7 +258,7 @@ void loop() {
     //tcs.setInterrupt(false);      // turn on LED
     tcs.getRawData(&red, &green, &blue, &clear);
 
-    if (verbosity) {
+    if (mirrorVerbosity) {
       Serial.print("C:\t"); Serial.print(clear);
       Serial.print("\tR:\t"); Serial.print(red);
       Serial.print("\tG:\t"); Serial.print(green);
@@ -258,19 +268,38 @@ void loop() {
     
       if (millis() - lastMirror > mirrorDelayTime) digitalWrite(MIRROR_LED_OUTPUT, LOW);
       
-      if (clear > 600) {
+      if ((clear > 700)and (red > 550)) {
         if (millis() - lastMirror > mirrorDelayTime) {
           Serial.print("MIRROR\t");
           digitalWrite(MIRROR_LED_OUTPUT, HIGH);
           lastMirror = millis();
           numMirrors += 1;
-          Serial2.print(numMirrors);
+          if (!turned) Serial2.print(numMirrors);
         }
       }
     
   }
 
-  if (snitch) {
+
+  time = millis();
+  Serial.print(totalDelay);
+  Serial.print("\t");
+  Serial.println(time);
+}
+
+// line following
+long rcTime(int pin) {
+pinMode(pin, OUTPUT);
+digitalWrite(pin, HIGH);
+delayMicroseconds(230);
+pinMode(pin, INPUT);
+digitalWrite(pin, LOW); long
+time = micros(); while
+(digitalRead(pin)); time = micros() - time; 
+return time;
+}
+
+void searchSnitch(){
    float reading = (analogRead(0));
    //Output of Hall Effect Sensor (integer between 0-1024)
   
@@ -290,7 +319,7 @@ void loop() {
    if (millis() - lastSnitch > snitchDelayTime) digitalWrite(SNITCH_LED_OUTPUT, LOW);
    if (abs(mag) > 400) {
      if (millis() - lastSnitch > snitchDelayTime) {
-       Serial.print("SNITCH\t");
+       Serial.print("SNITCH");
        digitalWrite(SNITCH_LED_OUTPUT, HIGH);
        lastSnitch = millis();
      }
@@ -303,20 +332,3 @@ void loop() {
       totalDelay += 1;
     }
   }
-  time = millis();
-  Serial.print(totalDelay);
-  Serial.print("\t");
-  Serial.println(time);
-}
-
-// line following
-long rcTime(int pin) {
-pinMode(pin, OUTPUT);
-digitalWrite(pin, HIGH);
-delayMicroseconds(230);
-pinMode(pin, INPUT);
-digitalWrite(pin, LOW); long
-time = micros(); while
-(digitalRead(pin)); time = micros() - time; 
-return time;
-}
