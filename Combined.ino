@@ -33,6 +33,9 @@ bool turned = false;
 
 // communication
 #define UNIQUE_ROBOT_CODE '8'
+#define MIRROR_CODE 'M'
+#define SNITCH_CODE 'S'
+#define NO_SNITCH_CODE 'N'
 
 // Define pins for XBee serial
 #define Rx 17 //define transmitting pin
@@ -270,11 +273,14 @@ void loop() {
       
       if ((clear > 700)and (red > 550)) {
         if (millis() - lastMirror > mirrorDelayTime) {
-          Serial.print("MIRROR\t");
-          digitalWrite(MIRROR_LED_OUTPUT, HIGH);
-          lastMirror = millis();
-          numMirrors += 1;
-          if (!turned) Serial2.print(numMirrors);
+          if (!turned) {
+            Serial.print("MIRROR\t");
+            digitalWrite(MIRROR_LED_OUTPUT, HIGH);
+            char mirror_outgoing = MIRROR_CODE;
+            Serial2.print(mirror_outgoing);
+            lastMirror = millis();
+            numMirrors += 1; 
+          }
         }
       }
     
@@ -319,10 +325,16 @@ void searchSnitch(){
    if (millis() - lastSnitch > snitchDelayTime) digitalWrite(SNITCH_LED_OUTPUT, LOW);
    if (abs(mag) > 400) {
      if (millis() - lastSnitch > snitchDelayTime) {
-       Serial.print("SNITCH");
+       // Serial.print("SNITCH");
+       char snitch_outgoing = SNITCH_CODE;
+       Serial2.print(snitch_outgoing);
        digitalWrite(SNITCH_LED_OUTPUT, HIGH);
        lastSnitch = millis();
      }
+   }
+   else {
+     char snitch_outgoing = NO_SNITCH_CODE;
+     Serial2.print(snitch_outgoing);
    }
    if (verbosity) {
      Serial.print("mag strength = "); // Display sensor value
